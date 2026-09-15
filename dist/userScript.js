@@ -10,7 +10,25 @@
     let x = window.innerWidth / 2;
     let y = window.innerHeight / 2;
     let lastHoverEl = null;
+    let lastForcedLi = null;
     let cursorEl = null;
+
+    function injectForcedHoverCSS() {
+      const style = document.createElement("style");
+      style.textContent = `
+      .primary-navigation > ul > li.forced-hover ul {
+        display: block;
+        position: absolute;
+        overflow: hidden;
+        width: 150px;
+        border-radius: 5px;
+        padding-top: 15px;
+        z-index: 5;
+        left: -25px;
+      }
+    `;
+      document.head.appendChild(style);
+    }
 
     function createCursor() {
       cursorEl = document.createElement("div");
@@ -57,6 +75,14 @@
       el.dispatchEvent(ev);
     }
 
+    function updateForcedHover(el) {
+      const li = el ? el.closest(".primary-navigation > ul > li") : null;
+      if (li === lastForcedLi) return;
+      if (lastForcedLi) lastForcedLi.classList.remove("forced-hover");
+      if (li) li.classList.add("forced-hover");
+      lastForcedLi = li;
+    }
+
     function updateHover() {
       cursorEl.style.display = "none";
       const el = document.elementFromPoint(x, y);
@@ -71,6 +97,7 @@
         fireMouseEvent("mouseenter", el, { bubbles: false });
       }
       lastHoverEl = el;
+      updateForcedHover(el);
     }
 
     function moveCursor(dx, dy) {
@@ -103,6 +130,10 @@
           fireMouseEvent("mouseout", lastHoverEl);
           fireMouseEvent("mouseleave", lastHoverEl, { bubbles: false });
           lastHoverEl = null;
+        }
+        if (lastForcedLi) {
+          lastForcedLi.classList.remove("forced-hover");
+          lastForcedLi = null;
         }
       }
     }
@@ -143,6 +174,7 @@
       e.stopImmediatePropagation();
     }
 
+    injectForcedHoverCSS();
     // capture:true damit dies VOR allgemein_navigation.js greift
     document.addEventListener("keydown", onKeyDown, true);
   })();

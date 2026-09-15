@@ -1,6 +1,6 @@
 (function () {
   const CDN =
-    "https://raw.githubusercontent.com/dreamerDM8000/tizenbrew-aniworld/refs/heads/main/dist/userScript.js";
+    "https://raw.githubusercontent.com/dreamerDM8000/tizenbrew-aniworld-dev/refs/heads/main/dist/userScript.js";
   const CACHE_KEY = "aniworld_script_cache";
   const SESSION_KEY = "aniworld_loaded";
 
