@@ -1,5 +1,5 @@
 (function () {
-  "use strict";
+  'use strict';
 
   // mods/cursor.js — Maus-Cursor-Modus für TV-Fernbedienung
   (function () {
@@ -404,9 +404,7 @@
 
     if (document.readyState !== "loading") setTimeout(init, 300);
     else
-      document.addEventListener("DOMContentLoaded", () =>
-        setTimeout(init, 300),
-      );
+      document.addEventListener("DOMContentLoaded", () => setTimeout(init, 300));
 
     new MutationObserver(() => {
       if (!currentEl || !document.body.contains(currentEl)) init();
@@ -451,8 +449,45 @@
     });
   }
 
+  // mods/keylogger.js — NUR zum Testen, danach wieder aus userScript.js entfernen
   (function () {
-    window.SCRIPT_VERSION = "1.0.2";
+    function toast(msg) {
+      const el = document.createElement("div");
+      el.textContent = msg;
+      el.style.cssText = [
+        "position: fixed",
+        "bottom: 40px",
+        "left: 50%",
+        "transform: translateX(-50%)",
+        "background: #FF6600",
+        "color: #fff",
+        "padding: 10px 24px",
+        "border-radius: 8px",
+        "font-size: 20px",
+        "z-index: 2147483647",
+        "opacity: 1",
+        "transition: opacity 1s ease",
+      ].join(";");
+      document.body.appendChild(el);
+      setTimeout(function () {
+        el.style.opacity = "0";
+        setTimeout(function () {
+          el.remove();
+        }, 1000);
+      }, 3000);
+    }
+
+    document.addEventListener(
+      "keydown",
+      function (e) {
+        toast("key=" + e.key + " code=" + e.code + " keyCode=" + e.keyCode);
+      },
+      true,
+    );
+  })();
+
+  (function () {
+    window.SCRIPT_VERSION = "1.0.3";
     console.log(SCRIPT_VERSION);
 
     if (window.__ANIWORLD_NAV_INITIALIZED__) {
@@ -480,9 +515,10 @@
     }
 
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", init());
+      document.addEventListener("DOMContentLoaded", init);
     } else {
       init();
     }
   })();
+
 })();
