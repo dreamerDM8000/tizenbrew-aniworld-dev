@@ -5,6 +5,7 @@
   (function () {
     const STEP = 18; // Pixel pro Tastendruck
     const CURSOR_ID = "tv-cursor";
+    const STORAGE_KEY = "aniworld_cursor_mode";
 
     let active = false;
     let x = window.innerWidth / 2;
@@ -120,6 +121,7 @@
     function setActive(state) {
       active = state;
       window.__cursorModeActive = active; // von navigation.js abfragbar
+      localStorage.setItem(STORAGE_KEY, active ? "1" : "0");
       if (active) {
         if (!cursorEl) createCursor();
         cursorEl.style.display = "";
@@ -175,8 +177,10 @@
     }
 
     injectForcedHoverCSS();
-    // capture:true damit dies VOR allgemein_navigation.js greift
     document.addEventListener("keydown", onKeyDown, true);
+    if (localStorage.getItem(STORAGE_KEY) === "1") {
+      setActive(true);
+    }
   })();
 
   function createNavigation(config) {
@@ -487,7 +491,7 @@
   })();
 
   (function () {
-    window.SCRIPT_VERSION = "1.0.4";
+    window.SCRIPT_VERSION = "1.0.5";
     console.log(SCRIPT_VERSION);
 
     if (window.__ANIWORLD_NAV_INITIALIZED__) {
