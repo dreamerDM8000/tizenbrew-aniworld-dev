@@ -1,5 +1,5 @@
 (function () {
-  'use strict';
+  "use strict";
 
   // mods/cursor.js — Maus-Cursor-Modus für TV-Fernbedienung
   (function () {
@@ -404,7 +404,9 @@
 
     if (document.readyState !== "loading") setTimeout(init, 300);
     else
-      document.addEventListener("DOMContentLoaded", () => setTimeout(init, 300));
+      document.addEventListener("DOMContentLoaded", () =>
+        setTimeout(init, 300),
+      );
 
     new MutationObserver(() => {
       if (!currentEl || !document.body.contains(currentEl)) init();
@@ -450,7 +452,7 @@
   }
 
   (function () {
-    window.SCRIPT_VERSION = "1.0.16";
+    window.SCRIPT_VERSION = "1.0.2";
     console.log(SCRIPT_VERSION);
 
     if (window.__ANIWORLD_NAV_INITIALIZED__) {
@@ -483,5 +485,4 @@
       init();
     }
   })();
-
 })();

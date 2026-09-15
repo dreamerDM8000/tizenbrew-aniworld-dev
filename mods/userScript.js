@@ -2,7 +2,7 @@ import "./cursor.js";
 import "./aniworld_navigation.js";
 
 (function () {
-  window.SCRIPT_VERSION = "1.0.16";
+  window.SCRIPT_VERSION = "1.0.2";
   console.log(SCRIPT_VERSION);
 
   if (window.__ANIWORLD_NAV_INITIALIZED__) {
@@ -30,7 +30,7 @@ import "./aniworld_navigation.js";
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init());
+    document.addEventListener("DOMContentLoaded", init);
   } else {
     init();
   }
