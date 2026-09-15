@@ -139,7 +139,7 @@
     }
 
     function onKeyDown(e) {
-      if (e.key === "ColorF0Red") {
+      if (e.key === "XF86Red" || e.keyCode === 403) {
         setActive(!active);
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -487,7 +487,7 @@
   })();
 
   (function () {
-    window.SCRIPT_VERSION = "1.0.3";
+    window.SCRIPT_VERSION = "1.0.4";
     console.log(SCRIPT_VERSION);
 
     if (window.__ANIWORLD_NAV_INITIALIZED__) {

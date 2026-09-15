@@ -136,7 +136,7 @@
   }
 
   function onKeyDown(e) {
-    if (e.key === "ColorF0Red") {
+    if (e.key === "XF86Red" || e.keyCode === 403) {
       setActive(!active);
       e.preventDefault();
       e.stopImmediatePropagation();

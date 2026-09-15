@@ -3,7 +3,7 @@ import "./aniworld_navigation.js";
 import "./keylogger.js";
 
 (function () {
-  window.SCRIPT_VERSION = "1.0.3";
+  window.SCRIPT_VERSION = "1.0.4";
   console.log(SCRIPT_VERSION);
 
   if (window.__ANIWORLD_NAV_INITIALIZED__) {
