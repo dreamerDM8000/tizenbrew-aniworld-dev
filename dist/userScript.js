@@ -1,6 +1,15 @@
 (function () {
   'use strict';
 
+  // mods/adblock.js — früh laden, VOR allen anderen Imports
+  (function () {
+    window.open = function () {
+      return null;
+    }; // Popup/Popunder verhindern
+    document.write = function () {}; // synchrones Ad-Injection verhindern
+    document.writeln = function () {};
+  })();
+
   // mods/cursor.js — Maus-Cursor-Modus für TV-Fernbedienung
   (function () {
     const STEP = 18; // Pixel pro Tastendruck
@@ -491,7 +500,7 @@
   })();
 
   (function () {
-    window.SCRIPT_VERSION = "1.0.5";
+    window.SCRIPT_VERSION = "1.0.6";
     console.log(SCRIPT_VERSION);
 
     if (window.__ANIWORLD_NAV_INITIALIZED__) {
