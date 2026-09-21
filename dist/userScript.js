@@ -1,15 +1,6 @@
 (function () {
   'use strict';
 
-  // mods/adblock.js — früh laden, VOR allen anderen Imports
-  (function () {
-    window.open = function () {
-      return null;
-    }; // Popup/Popunder verhindern
-    document.write = function () {}; // synchrones Ad-Injection verhindern
-    document.writeln = function () {};
-  })();
-
   // mods/cursor.js — Maus-Cursor-Modus für TV-Fernbedienung
   (function () {
     const STEP = 18; // Pixel pro Tastendruck
@@ -500,18 +491,41 @@
   })();
 
   (() => {
-    window.SCRIPT_VERSION = "1.0.8";
+    window.SCRIPT_VERSION = "1.0.9";
 
     let tizenHwKeyHandler = null;
     let clickHandler = null;
-
     let elementObserver = null;
+
+    function removeBlockedElements() {
+      document
+        .querySelectorAll("iframe, a[target='_blank']")
+        .forEach((element) => {
+          element.remove();
+        });
+    }
 
     function init() {
       if (window.__ANIWORLD_NAV_INITIALIZED__) {
         return;
       }
 
+      // Bereits vorhandene Elemente entfernen
+      removeBlockedElements();
+
+      // Neu eingefügte Elemente automatisch entfernen
+      elementObserver = new MutationObserver(() => {
+        removeBlockedElements();
+      });
+
+      if (document.documentElement) {
+        elementObserver.observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+        });
+      }
+
+      // Tizen Zurück-Taste
       tizenHwKeyHandler = function (e) {
         if (e.keyName === "back") {
           if (window.history.length > 1) {
@@ -522,10 +536,13 @@
         }
       };
 
+      // target="_blank" abfangen
       clickHandler = function (e) {
         const a = e.target.closest("a[target='_blank']");
 
-        if (!a) return;
+        if (!a) {
+          return;
+        }
 
         e.preventDefault();
         e.stopPropagation();
@@ -533,28 +550,8 @@
         window.location.href = a.href;
       };
 
-      // Alle vorhandenen Elemente entfernen
-      document
-        .querySelectorAll("iframe, a[target='_blank']")
-        .forEach((element) => {
-          element.remove();
-        });
-
-      // Neue Elemente automatisch entfernen
-      elementObserver = new MutationObserver(() => {
-        document
-          .querySelectorAll("iframe, a[target='_blank']")
-          .forEach((element) => {
-            element.remove();
-          });
-      });
-
-      elementObserver.observe(document.documentElement, {
-        childList: true,
-        subtree: true,
-      });
-
       window.addEventListener("tizenhwkey", tizenHwKeyHandler);
+
       document.addEventListener("click", clickHandler, true);
 
       window.__ANIWORLD_NAV_INITIALIZED__ = true;
@@ -591,13 +588,20 @@
         return;
       }
 
-      if (document.readyState === "complete") {
-        init();
-        return;
+      if (document.readyState === "loading") {
+        window.addEventListener(
+          "DOMContentLoaded",
+          () => {
+            setTimeout(init, 500);
+          },
+          { once: true },
+        );
+      } else {
+        setTimeout(init, 500);
       }
 
-      window.addEventListener("load", init, { once: true });
-
+      // Fallback für den Fall, dass DOMContentLoaded
+      // auf dem TV nicht zuverlässig ausgelöst wird.
       setTimeout(() => {
         if (!window.__ANIWORLD_NAV_INITIALIZED__) {
           init();
