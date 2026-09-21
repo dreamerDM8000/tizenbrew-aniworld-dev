@@ -505,6 +505,8 @@
     let tizenHwKeyHandler = null;
     let clickHandler = null;
 
+    let elementObserver = null;
+
     function init() {
       if (window.__ANIWORLD_NAV_INITIALIZED__) {
         return;
@@ -531,6 +533,27 @@
         window.location.href = a.href;
       };
 
+      // Alle vorhandenen Elemente entfernen
+      document
+        .querySelectorAll("iframe, a[target='_blank']")
+        .forEach((element) => {
+          element.remove();
+        });
+
+      // Neue Elemente automatisch entfernen
+      elementObserver = new MutationObserver(() => {
+        document
+          .querySelectorAll("iframe, a[target='_blank']")
+          .forEach((element) => {
+            element.remove();
+          });
+      });
+
+      elementObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+
       window.addEventListener("tizenhwkey", tizenHwKeyHandler);
       document.addEventListener("click", clickHandler, true);
 
@@ -550,6 +573,11 @@
       if (clickHandler) {
         document.removeEventListener("click", clickHandler, true);
         clickHandler = null;
+      }
+
+      if (elementObserver) {
+        elementObserver.disconnect();
+        elementObserver = null;
       }
 
       window.__ANIWORLD_NAV_INITIALIZED__ = false;
