@@ -39,6 +39,8 @@
     "buildv": "node mods/bump-version.js && rollup -c mods/rollup.config.js"
   },
   "devDependencies": {
+    "@types/tizen-common-web": "^2.0.6",
+    "@types/tizen-tv-webapis": "^2.0.9",
     "rollup": "^4.60.1"
   }
 }
