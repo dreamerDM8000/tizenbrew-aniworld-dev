@@ -1,9 +1,8 @@
 import "./cursor.js";
-import "./aniworld_navigation.js";
 import "./keylogger.js";
 
 (() => {
-  window.SCRIPT_VERSION = "1.0.9";
+  window.SCRIPT_VERSION = "1.0.10";
 
   let tizenHwKeyHandler = null;
   let clickHandler = null;
