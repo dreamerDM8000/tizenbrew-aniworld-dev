@@ -6,15 +6,15 @@ import "./keylogger.js";
 (() => {
   window.SCRIPT_VERSION = "1.0.8";
 
+  let tizenHwKeyHandler = null;
+  let clickHandler = null;
+
   function init() {
-    // Nur einmal initialisieren
     if (window.__ANIWORLD_NAV_INITIALIZED__) {
       return;
     }
 
-    window.__ANIWORLD_NAV_INITIALIZED__ = true;
-
-    window.addEventListener("tizenhwkey", function (e) {
+    tizenHwKeyHandler = function (e) {
       if (e.keyName === "back") {
         if (window.history.length > 1) {
           window.history.back();
@@ -22,23 +22,45 @@ import "./keylogger.js";
           tizen.application.getCurrentApplication().exit();
         }
       }
-    });
+    };
 
-    document.addEventListener(
-      "click",
-      function (e) {
-        const a = e.target.closest("a[target='_blank']");
+    clickHandler = function (e) {
+      const a = e.target.closest("a[target='_blank']");
 
-        if (!a) return;
+      if (!a) return;
 
-        e.preventDefault();
-        e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
 
-        window.location.href = a.href;
-      },
-      true,
-    );
+      window.location.href = a.href;
+    };
+
+    window.addEventListener("tizenhwkey", tizenHwKeyHandler);
+    document.addEventListener("click", clickHandler, true);
+
+    window.__ANIWORLD_NAV_INITIALIZED__ = true;
   }
+
+  function uninit() {
+    if (!window.__ANIWORLD_NAV_INITIALIZED__) {
+      return;
+    }
+
+    if (tizenHwKeyHandler) {
+      window.removeEventListener("tizenhwkey", tizenHwKeyHandler);
+      tizenHwKeyHandler = null;
+    }
+
+    if (clickHandler) {
+      document.removeEventListener("click", clickHandler, true);
+      clickHandler = null;
+    }
+
+    window.__ANIWORLD_NAV_INITIALIZED__ = false;
+  }
+
+  window.__ANIWORLD_INIT__ = init;
+  window.__ANIWORLD_UNINIT__ = uninit;
 
   function waitForPage() {
     if (window.__ANIWORLD_NAV_INITIALIZED__) {
@@ -50,11 +72,8 @@ import "./keylogger.js";
       return;
     }
 
-    // Warten, bis die Seite vollständig geladen wurde
     window.addEventListener("load", init, { once: true });
 
-    // Fallback für den Fall, dass Tizen/Browser das load-Event
-    // nicht zuverlässig auslöst.
     setTimeout(() => {
       if (!window.__ANIWORLD_NAV_INITIALIZED__) {
         init();

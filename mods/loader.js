@@ -1,6 +1,7 @@
-(function () {
+(() => {
   const CDN =
     "https://raw.githubusercontent.com/dreamerDM8000/tizenbrew-aniworld-dev/refs/heads/main/dist/userScript.js";
+
   const CACHE_KEY = "aniworld_script_cache";
   const SESSION_KEY = "aniworld_loaded";
 
@@ -14,7 +15,9 @@
 
   function showToast(msg) {
     const toast = document.createElement("div");
+
     toast.textContent = msg;
+
     toast.style.cssText = [
       "position: fixed",
       "bottom: 40px",
@@ -32,45 +35,79 @@
 
     document.body.appendChild(toast);
 
-    // Nach 3 Sekunden ausblenden
-    setTimeout(function () {
+    setTimeout(() => {
       toast.style.opacity = "0";
-      setTimeout(function () {
+
+      setTimeout(() => {
         toast.remove();
       }, 1000);
     }, 3000);
   }
 
-  function getVersion() {
-    return window.SCRIPT_VERSION || "unbekannt";
+  function getVersion(code) {
+    const match = code.match(/window\.SCRIPT_VERSION\s*=\s*["']([^"']+)["']/);
+
+    return match ? match[1] : "unbekannt";
   }
 
+  function cleanup() {
+    if (typeof window.__ANIWORLD_UNINIT__ === "function") {
+      try {
+        window.__ANIWORLD_UNINIT__();
+      } catch (e) {
+        console.error("[AniWorld Loader] Cleanup-Fehler:", e);
+      }
+    }
+  }
+
+  // Bereits innerhalb dieser Website geladen?
   if (sessionStorage.getItem(SESSION_KEY)) {
     const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) run(cached);
+
+    if (cached) {
+      run(cached);
+    }
+
     return;
   }
 
+  // Website verlassen → Script aufräumen
+  window.addEventListener("pagehide", cleanup, { once: true });
+  window.addEventListener("beforeunload", cleanup, { once: true });
+
+  // Erstmaliger Start → CDN laden
   fetch(CDN + "?t=" + Date.now(), {
     cache: "no-store",
   })
-    .then(function (res) {
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error("HTTP " + res.status);
+      }
+
       return res.text();
     })
-    .then(function (code) {
+    .then((code) => {
       localStorage.setItem(CACHE_KEY, code);
+
+      // Erst jetzt markieren:
+      // Diese Website-Session hat das Script geladen.
       sessionStorage.setItem(SESSION_KEY, "1");
+
       run(code);
-      // Toast erst nach run() damit document.body existiert
-      setTimeout(function () {
+
+      setTimeout(() => {
         showToast("AniWorld Script v" + getVersion(code) + " geladen");
       }, 500);
     })
-    .catch(function () {
+    .catch(() => {
       const cached = localStorage.getItem(CACHE_KEY);
+
       if (cached) {
+        sessionStorage.setItem(SESSION_KEY, "1");
+
         run(cached);
-        setTimeout(function () {
+
+        setTimeout(() => {
           showToast(
             "AniWorld Script v" + getVersion(cached) + " (Offline-Cache)",
           );
