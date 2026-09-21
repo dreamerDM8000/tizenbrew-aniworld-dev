@@ -1,21 +1,43 @@
-import "./adblock.js";
 import "./cursor.js";
 import "./aniworld_navigation.js";
 import "./keylogger.js";
 
 (() => {
-  window.SCRIPT_VERSION = "1.0.8";
+  window.SCRIPT_VERSION = "1.0.9";
 
   let tizenHwKeyHandler = null;
   let clickHandler = null;
-
   let elementObserver = null;
+
+  function removeBlockedElements() {
+    document
+      .querySelectorAll("iframe, a[target='_blank']")
+      .forEach((element) => {
+        element.remove();
+      });
+  }
 
   function init() {
     if (window.__ANIWORLD_NAV_INITIALIZED__) {
       return;
     }
 
+    // Bereits vorhandene Elemente entfernen
+    removeBlockedElements();
+
+    // Neu eingefügte Elemente automatisch entfernen
+    elementObserver = new MutationObserver(() => {
+      removeBlockedElements();
+    });
+
+    if (document.documentElement) {
+      elementObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+    }
+
+    // Tizen Zurück-Taste
     tizenHwKeyHandler = function (e) {
       if (e.keyName === "back") {
         if (window.history.length > 1) {
@@ -26,10 +48,13 @@ import "./keylogger.js";
       }
     };
 
+    // target="_blank" abfangen
     clickHandler = function (e) {
       const a = e.target.closest("a[target='_blank']");
 
-      if (!a) return;
+      if (!a) {
+        return;
+      }
 
       e.preventDefault();
       e.stopPropagation();
@@ -37,28 +62,8 @@ import "./keylogger.js";
       window.location.href = a.href;
     };
 
-    // Alle vorhandenen Elemente entfernen
-    document
-      .querySelectorAll("iframe, a[target='_blank']")
-      .forEach((element) => {
-        element.remove();
-      });
-
-    // Neue Elemente automatisch entfernen
-    elementObserver = new MutationObserver(() => {
-      document
-        .querySelectorAll("iframe, a[target='_blank']")
-        .forEach((element) => {
-          element.remove();
-        });
-    });
-
-    elementObserver.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-    });
-
     window.addEventListener("tizenhwkey", tizenHwKeyHandler);
+
     document.addEventListener("click", clickHandler, true);
 
     window.__ANIWORLD_NAV_INITIALIZED__ = true;
@@ -95,13 +100,20 @@ import "./keylogger.js";
       return;
     }
 
-    if (document.readyState === "complete") {
-      init();
-      return;
+    if (document.readyState === "loading") {
+      window.addEventListener(
+        "DOMContentLoaded",
+        () => {
+          setTimeout(init, 500);
+        },
+        { once: true },
+      );
+    } else {
+      setTimeout(init, 500);
     }
 
-    window.addEventListener("load", init, { once: true });
-
+    // Fallback für den Fall, dass DOMContentLoaded
+    // auf dem TV nicht zuverlässig ausgelöst wird.
     setTimeout(() => {
       if (!window.__ANIWORLD_NAV_INITIALIZED__) {
         init();
