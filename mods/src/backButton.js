@@ -1,20 +1,18 @@
 /**
  * backButton.js
  * Verwaltet die Zurück-Taste (Tizen Hardware-Taste 'tizenhwkey' & TV-Fernbedienungstaste 10009).
- * Schließt offene Menüs, navigiert in der Browser-Historie zurück oder beendet das Modul sauber,
- * sodass beim Verlassen kein Skript mehr in TizenBrew aktiv bleibt.
+ * Schließt geöffnete Menüs, beendet den Mauszeiger-Modus, navigiert in der Historie zurück
+ * oder verlässt das Modul sauber auf der Startseite.
  */
 
 import { KEY_CODES } from "./constants.js";
 import { closeAllMenus } from "./menuController.js";
 import { Logger } from "./logger.js";
+import { isCursorActive, setCursorActive } from "./virtualCursor.js";
 
 let tizenHwKeyHandler = null;
 let keydownHandler = null;
 
-/**
- * Prüft, ob sich der Nutzer auf der Root-Ebene (Startseite) von AniWorld befindet.
- */
 function isAniWorldRoot() {
   const path = window.location.pathname;
   return path === "/" || path === "" || path === "/home";
@@ -22,6 +20,13 @@ function isAniWorldRoot() {
 
 function handleBackAction() {
   Logger.info("Back-Taste betätigt. Pfad:", window.location.pathname);
+
+  // 0. Wenn virtueller Mauszeiger aktiv ist -> Zuerst Mauszeiger deaktivieren
+  if (isCursorActive()) {
+    Logger.info("Mauszeiger per Back-Taste beendet.");
+    setCursorActive(false);
+    return true;
+  }
 
   // 1. Offene Dropdowns oder Modals schließen
   if (closeAllMenus()) {
@@ -33,7 +38,6 @@ function handleBackAction() {
   if (isAniWorldRoot()) {
     Logger.info("Auf Root-Ebene (aniworld.to) - beende Modul und bereinige alle Ressourcen.");
 
-    // Modul vollständig uninitialisieren (Styles, Listener, Polyfill entfernen)
     if (typeof window.__ANIWORLD_UNINIT__ === "function") {
       try {
         window.__ANIWORLD_UNINIT__();
@@ -46,13 +50,11 @@ function handleBackAction() {
       sessionStorage.removeItem("aniworld_loaded");
     } catch (e) {}
 
-    // In der Historie zurück zu TizenBrew navigieren
     if (window.history.length > 1) {
       window.history.back();
       return true;
     }
 
-    // Falls keine Browser-Historie vorhanden ist -> App schließen
     if (typeof tizen !== "undefined" && tizen.application) {
       try {
         tizen.application.getCurrentApplication().exit();
@@ -101,7 +103,7 @@ export function initBackButton() {
 
   window.addEventListener("tizenhwkey", tizenHwKeyHandler);
   document.addEventListener("keydown", keydownHandler, true);
-  Logger.info("Back-Button-Handler mit Root-Exit initialisiert.");
+  Logger.info("Back-Button-Handler mit Cursor- & Root-Exit initialisiert.");
 }
 
 export function cleanupBackButton() {

@@ -25,6 +25,28 @@ export function injectFocusStyles() {
       outline-offset: 2px !important;
     }
 
+    /* Header als eigenständigen Navigations-Container definieren */
+    header.main-header {
+      --spatial-navigation-contain: contain !important;
+      position: relative !important;
+      z-index: 10000 !important;
+    }
+
+    /* Header-Buttons für Spatial Navigation räumlich klar definieren */
+    .menuSearchButton,
+    .liveNewsFeedButton {
+      display: inline-block !important;
+      min-width: 34px !important;
+      min-height: 24px !important;
+      cursor: pointer !important;
+    }
+
+    .avatar a,
+    .dd p a {
+      display: inline-block !important;
+      min-height: 24px !important;
+    }
+
     /* Anime-Cover Hover-Infos bei TV-Fokus sofort sichtbar machen */
     .coverListItem:focus-within .seriesListHorizontalEffect,
     .coverListItem:has(:focus) .seriesListHorizontalEffect {

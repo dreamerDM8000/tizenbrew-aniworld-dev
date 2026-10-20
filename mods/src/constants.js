@@ -5,7 +5,7 @@
 
 export const APP_CONFIG = {
   NAME: "AniWorld TV",
-  VERSION: "1.0.7",
+  VERSION: "1.0.8",
   STORAGE_CACHE_KEY: "aniworld_script_cache",
   STORAGE_SESSION_KEY: "aniworld_loaded",
   FOCUS_CLASS: "tv-focused",
@@ -16,16 +16,18 @@ export const APP_CONFIG = {
 export const INTERACTIVE_AUGMENT_SELECTORS = [
   // Karussell-Steuerung (vor / zurück)
   ".coverListNavigation span[data-action]",
-  // Suche im Header
+  // Suche & Benachrichtigungen im Header
   ".menuSearchButton",
-  // Benachrichtigungen
   ".liveNewsFeedButton",
   // Dropdown-Menü 'mehr' im Header
   ".primary-navigation > ul > li > strong",
+  // User Profil & Dropdown-Menü im Header
+  ".avatar a",
+  ".dd > p > a",
+  ".dd p a",
+  ".dd .modal a",
   // Mobile/Responsive Menü-Button
   ".js-menu-button",
-  // Avatar / User Dropdown Trigger
-  ".dd > p > a",
 ];
 
 export const KEY_CODES = {
@@ -35,6 +37,8 @@ export const KEY_CODES = {
   ARROW_UP: 38,
   ARROW_RIGHT: 39,
   ARROW_DOWN: 40,
+  // Rote Farbtaste
+  RED_KEY: 403,
   // Tizen HW Back / Return
   TIZEN_BACK: 10009,
 };

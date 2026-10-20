@@ -1,7 +1,7 @@
 /**
  * adBlocker.js
  * Performanter Schutz vor Popups, Popundern und ungewollten Weiterleitungen beim Abspielen von Videos.
- * Speziell optimiert für Samsung Tizen Smart TVs (keine teuren DOM-Scans).
+ * Verhindert strikt das Öffnen neuer Tabs, damit die TizenBrew-Umgebung nicht verlassen wird.
  */
 
 import { Logger } from "./logger.js";
@@ -9,7 +9,6 @@ import { Logger } from "./logger.js";
 let clickInterceptor = null;
 let iframeObserver = null;
 
-// Bekannte Ad- und Tracking-Domains bzw. verdächtige Muster
 const AD_DOMAIN_PATTERNS = [
   "popads",
   "popcash",
@@ -25,27 +24,18 @@ const AD_DOMAIN_PATTERNS = [
   "redirect",
 ];
 
-/**
- * Prüft, ob eine URL verdächtig ist oder zu einem Ad-Netzwerk gehört.
- */
 function isSuspiciousUrl(urlString) {
   if (!urlString) return false;
   const lower = urlString.toLowerCase();
   return AD_DOMAIN_PATTERNS.some((pattern) => lower.includes(pattern));
 }
 
-/**
- * Schützt Video-Player-Iframes davor, die Hauptseite umzuleiten (Top-Navigation Hijacking).
- */
 function securePlayerIframes(root = document) {
   try {
     const iframes = root.querySelectorAll("iframe");
     iframes.forEach((iframe) => {
-      // Wenn bereits gesichert, überspringen
       if (iframe.dataset.tvSecured) return;
 
-      // Verhindert, dass das Iframe die Top-Window-Location ändert oder Popups öffnet
-      // Erlaubt weiterhin Scripts, Same-Origin und HTML5-Videowiedergabe
       const currentSandbox = iframe.getAttribute("sandbox");
       if (!currentSandbox) {
         iframe.setAttribute(
@@ -56,24 +46,17 @@ function securePlayerIframes(root = document) {
 
       iframe.dataset.tvSecured = "1";
     });
-  } catch (e) {
-    // Stilles Abfangen
-  }
+  } catch (e) {}
 }
 
-/**
- * Entfernt transparente Fake-Overlay-Elemente, die Klicks auf Video-Playern abfangen.
- */
 function removeInvisibleAdOverlays() {
   try {
-    // Typische transparente Ad-Layer über Video-Playern
     const overlays = document.querySelectorAll(
       "div[style*='z-index: 2147483647'], div[style*='z-index: 999999'], a[target='_blank'][style*='position: absolute']",
     );
 
     overlays.forEach((el) => {
-      // Nur Elemente entfernen, die keine echten TV-Elemente sind
-      if (el.id !== "aniworld-loader-toast" && !el.closest(".main-header")) {
+      if (el.id !== "aniworld-loader-toast" && el.id !== "aniworld-tv-cursor" && !el.closest(".main-header")) {
         const style = window.getComputedStyle(el);
         if (style.opacity === "0" || style.pointerEvents === "auto") {
           el.remove();
@@ -87,34 +70,41 @@ function removeInvisibleAdOverlays() {
 export function initAdBlocker() {
   Logger.info("Initialisiere TV-AdBlocker & Redirect-Schutz...");
 
-  // 1. window.open neutralisieren (verhindert Popups & Popunder bei Video-Klicks)
+  // 1. window.open abfangen: Verhindert Popups & neue Tabs auf TV!
   try {
     window.open = function (url) {
-      Logger.info("[AdBlock] window.open blockiert:", url);
-      return null;
+      if (!url) return null;
+
+      // Ad-URLs komplett sperren
+      if (isSuspiciousUrl(url)) {
+        Logger.info("[AdBlock] window.open Werbe-URL blockiert:", url);
+        return null;
+      }
+
+      // Legitime Aufrufe im SELBEN Fenster öffnen, damit TV nicht in separaten Tab wechselt
+      Logger.info("[Navigation] window.open im aktuellen Fenster geöffnet:", url);
+      window.location.href = url;
+      return window;
     };
   } catch (e) {
     Logger.warn("[AdBlock] window.open konnte nicht überschrieben werden:", e);
   }
 
-  // 2. document.write neutralisieren (verhindert synchrone Ad-Injektionen)
+  // 2. document.write neutralisieren
   try {
     document.write = function () {};
     document.writeln = function () {};
   } catch (e) {}
 
-  // 3. Klick-Interception im Capture-Phase (fängt Klicks auf Fake-Ads und externe Links ab)
+  // 3. Klick-Interception im Capture-Phase
   clickInterceptor = (event) => {
     const target = event.target;
     if (!target || !(target instanceof Element)) return;
 
-    // A-Tag oder übergeordneten Link finden
     const anchor = target.closest("a");
     if (!anchor) return;
 
     const href = anchor.getAttribute("href") || "";
-
-    // Normale interne Navigation nicht blockieren
     if (href.startsWith("#") || href.startsWith("javascript:")) {
       return;
     }
@@ -122,7 +112,7 @@ export function initAdBlocker() {
     try {
       const url = new URL(anchor.href, window.location.href);
 
-      // Verdächtige Ad-Links sofort blockieren
+      // Verdächtige Ad-Links blockieren
       if (isSuspiciousUrl(url.href)) {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -130,32 +120,22 @@ export function initAdBlocker() {
         return;
       }
 
-      // Wenn das Ziel extern ist und target="_blank" hat, aber nicht zu AniWorld gehört:
-      const currentHost = window.location.hostname;
-      if (url.hostname !== currentHost && anchor.target === "_blank") {
-        // Nicht zu AniWorld gehörende Popups/Ads verhindern
-        if (
-          !url.hostname.includes("aniworld") &&
-          !url.hostname.includes("s.to")
-        ) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          Logger.info(
-            "[AdBlock] Ungewollte Weiterleitung zu externer Seite blockiert:",
-            url.href,
-          );
-        }
+      // Falls Link target="_blank" hat: Immer im selben Fenster öffnen
+      if (anchor.target === "_blank" || anchor.getAttribute("target") === "_blank") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        anchor.target = "_self";
+        anchor.removeAttribute("target");
+        window.location.href = anchor.href;
       }
     } catch (e) {}
   };
 
   document.addEventListener("click", clickInterceptor, true);
 
-  // 4. Iframes sichern und unsichtbare Layer entfernen
   securePlayerIframes();
   removeInvisibleAdOverlays();
 
-  // Observer für neu geladene Video-Iframes (z. B. nach Hoster-Auswahl)
   if (typeof MutationObserver !== "undefined" && document.body) {
     let debounceTimer = null;
     iframeObserver = new MutationObserver(() => {
@@ -189,4 +169,3 @@ export function cleanupAdBlocker() {
 
   Logger.info("TV-AdBlocker aufgeräumt.");
 }
-

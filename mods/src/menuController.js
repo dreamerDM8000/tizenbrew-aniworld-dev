@@ -10,10 +10,6 @@ let focusInHandler = null;
 let keydownHandler = null;
 let activeOpenMenu = null;
 
-/**
- * Schließt das aktuell geöffnete TV-Menü in O(1).
- * @returns {boolean} True, wenn ein Menü geöffnet war und geschlossen wurde.
- */
 export function closeAllMenus() {
   if (activeOpenMenu) {
     activeOpenMenu.classList.remove(APP_CONFIG.MENU_OPEN_CLASS);
@@ -24,9 +20,6 @@ export function closeAllMenus() {
   return false;
 }
 
-/**
- * Initialisiert die Menüsteuerung.
- */
 export function initMenuController() {
   focusInHandler = (event) => {
     const focusedEl = event.target;
@@ -34,11 +27,12 @@ export function initMenuController() {
 
     let targetMenu = null;
 
-    // Prüfen, ob der Fokus in einem Menü liegt
+    // Prüfen, ob der Fokus im Dropdown 'mehr' liegt
     const moreMenuLi = focusedEl.closest(".primary-navigation > ul > li");
     if (moreMenuLi && moreMenuLi.querySelector("ul")) {
       targetMenu = moreMenuLi;
     } else {
+      // Prüfen, ob der Fokus im User-Menü (.dd) liegt
       const ddContainer = focusedEl.closest(".dd");
       if (ddContainer) {
         targetMenu = ddContainer;
@@ -52,7 +46,6 @@ export function initMenuController() {
       targetMenu.classList.add(APP_CONFIG.MENU_OPEN_CLASS);
       activeOpenMenu = targetMenu;
     } else if (activeOpenMenu) {
-      // Fokus hat das Menü verlassen
       activeOpenMenu.classList.remove(APP_CONFIG.MENU_OPEN_CLASS);
       activeOpenMenu = null;
     }
@@ -64,6 +57,7 @@ export function initMenuController() {
       const activeEl = document.activeElement;
       if (!activeEl) return;
 
+      // 1. Klick auf 'mehr' Trigger
       if (activeEl.matches(".primary-navigation > ul > li > strong")) {
         const parentLi = activeEl.closest("li");
         if (parentLi) {
@@ -78,12 +72,28 @@ export function initMenuController() {
           event.preventDefault();
         }
       }
+
+      // 2. Klick auf User-Profil Trigger (.dd p a)
+      if (activeEl.closest(".dd > p > a, .dd p a")) {
+        const ddContainer = activeEl.closest(".dd");
+        if (ddContainer) {
+          const isOpen = ddContainer.classList.toggle(APP_CONFIG.MENU_OPEN_CLASS);
+          activeOpenMenu = isOpen ? ddContainer : null;
+          if (isOpen) {
+            const firstModalLink = ddContainer.querySelector(".modal ul li a");
+            if (firstModalLink) {
+              firstModalLink.focus();
+            }
+          }
+          event.preventDefault();
+        }
+      }
     }
   };
 
   document.addEventListener("focusin", focusInHandler, true);
   document.addEventListener("keydown", keydownHandler, true);
-  Logger.info("Menu-Controller (O(1) optimiert) initialisiert.");
+  Logger.info("Menu-Controller (inkl. User-Menü-Toggle) initialisiert.");
 }
 
 export function cleanupMenuController() {
