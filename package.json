@@ -1,7 +1,7 @@
 {
   "name": "@dreamerdm8000/tizenbrew-aniworld-dev",
   "appName": "AniWorld",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "description": "TizenBrew Modul für AniWorld auf Samsung Tizen TVs",
   "packageType": "mods",
   "type": "module",
@@ -16,7 +16,12 @@
     "MediaFastForward",
     "MediaRewind",
     "MediaTrackNext",
-    "MediaTrackPrevious"
+    "MediaTrackPrevious",
+    "Back",
+    "ColorF0Red",
+    "ColorF1Green",
+    "ColorF2Yellow",
+    "ColorF3Blue"
   ],
   "author": "dreamerDM8000",
   "license": "MIT",

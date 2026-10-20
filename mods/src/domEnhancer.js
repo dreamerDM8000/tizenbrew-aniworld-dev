@@ -1,7 +1,7 @@
 /**
  * domEnhancer.js
- * Augmentiert interaktive DOM-Elemente auf AniWorld mit tabindex="0",
- * damit das W3C Spatial Navigation Polyfill sie zuverlässig fokussiert.
+ * Augmentiert interaktive DOM-Elemente mit tabindex="0" für das W3C Spatial Navigation Polyfill.
+ * Streng optimiert mit Caching und Debouncing für maximale TV-Performance.
  */
 
 import { INTERACTIVE_AUGMENT_SELECTORS } from "./constants.js";
@@ -9,41 +9,63 @@ import { Logger } from "./logger.js";
 
 let mutationObserver = null;
 let clickHandler = null;
+let debounceTimeout = null;
+
+// Erweitert Selektoren um :not([data-tv-ready]), um bereits augmentierte Elemente sofort zu überspringen
+const SELECTOR_STRING = INTERACTIVE_AUGMENT_SELECTORS.map(
+  (s) => `${s}:not([data-tv-ready])`,
+).join(", ");
 
 /**
- * Weist allen spezifischen interaktiven Elementen tabindex="0" zu.
+ * Weist interaktiven Elementen tabindex="0" zu.
  */
 export function augmentInteractiveElements(root = document) {
   try {
-    const selector = INTERACTIVE_AUGMENT_SELECTORS.join(", ");
-    const elements = root.querySelectorAll(selector);
+    const elements = root.querySelectorAll(SELECTOR_STRING);
+    if (!elements || elements.length === 0) return;
 
-    elements.forEach((el) => {
+    for (let i = 0; i < elements.length; i++) {
+      const el = elements[i];
       if (!el.hasAttribute("tabindex")) {
         el.setAttribute("tabindex", "0");
       }
-      if (!el.hasAttribute("role") && el.tagName !== "A" && el.tagName !== "BUTTON") {
+      if (
+        !el.hasAttribute("role") &&
+        el.tagName !== "A" &&
+        el.tagName !== "BUTTON"
+      ) {
         el.setAttribute("role", "button");
       }
-    });
+      el.dataset.tvReady = "1";
+    }
   } catch (error) {
     Logger.error("Fehler beim Augmentieren der DOM-Elemente:", error);
   }
 }
 
 /**
- * Initialisiert den DOM-Observer für dynamisch nachgeladene Inhalte
- * und fängt Klicks auf interne target="_blank"-Links ab (im selben Tab öffnen).
+ * Debounced-Variante für den MutationObserver, um CPU-Spitzen auf dem TV zu vermeiden.
+ */
+function debouncedAugment() {
+  if (debounceTimeout) return;
+  debounceTimeout = setTimeout(() => {
+    debounceTimeout = null;
+    augmentInteractiveElements();
+  }, 250);
+}
+
+/**
+ * Initialisiert den DOM-Observer und Klick-Handler.
  */
 export function initDomEnhancer() {
   augmentInteractiveElements();
 
-  // MutationObserver für dynamischen Content (z. B. Filter, unendliches Scrollen)
   if (typeof MutationObserver !== "undefined" && document.body) {
     mutationObserver = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.addedNodes.length > 0) {
-          augmentInteractiveElements();
+      // Nur reagieren, wenn tatsächlich neue Nodes eingefügt wurden
+      for (let i = 0; i < mutations.length; i++) {
+        if (mutations[i].addedNodes.length > 0) {
+          debouncedAugment();
           break;
         }
       }
@@ -55,14 +77,14 @@ export function initDomEnhancer() {
     });
   }
 
-  // Links mit target="_blank" auf TV im aktuellen Fenster öffnen
+  // Links mit target="_blank" auf TV im selben Tab öffnen
   clickHandler = (event) => {
-    const anchor = event.target.closest("a[target='_blank']");
-    if (!anchor || !anchor.href) {
-      return;
-    }
+    const target = event.target;
+    if (!target || !(target instanceof Element)) return;
 
-    // Wenn es sich um einen internen Link handelt, im selben Tab öffnen
+    const anchor = target.closest("a[target='_blank']");
+    if (!anchor || !anchor.href) return;
+
     try {
       const targetUrl = new URL(anchor.href, window.location.href);
       if (targetUrl.hostname.includes("aniworld.to")) {
@@ -70,19 +92,19 @@ export function initDomEnhancer() {
         event.stopPropagation();
         window.location.href = anchor.href;
       }
-    } catch (e) {
-      // Ignorieren bei ungültigen URLs
-    }
+    } catch (e) {}
   };
 
   document.addEventListener("click", clickHandler, true);
-  Logger.info("DOM-Enhancer initialisiert.");
+  Logger.info("DOM-Enhancer (Performance-optimiert) initialisiert.");
 }
 
-/**
- * Bereinigt Observer und Event-Listener beim Verlassen der Seite.
- */
 export function cleanupDomEnhancer() {
+  if (debounceTimeout) {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = null;
+  }
+
   if (mutationObserver) {
     mutationObserver.disconnect();
     mutationObserver = null;
@@ -95,4 +117,3 @@ export function cleanupDomEnhancer() {
 
   Logger.info("DOM-Enhancer aufgeräumt.");
 }
-

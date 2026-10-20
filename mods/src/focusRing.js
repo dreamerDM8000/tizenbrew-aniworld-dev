@@ -1,6 +1,7 @@
 /**
  * focusRing.js
- * Injiziert High-Visibility CSS für die TV-Fokusdarstellung und Hover-Simulationen.
+ * Schlankes, hochperformantes CSS für die TV-Fokusdarstellung.
+ * Optimiert für schwächere TV-Grafikchips (kein box-shadow, keine teuren Transitions).
  */
 
 import { APP_CONFIG } from "./constants.js";
@@ -16,22 +17,15 @@ export function injectFocusStyles() {
   const styleEl = document.createElement("style");
   styleEl.id = STYLE_ELEMENT_ID;
   styleEl.textContent = `
-    /* Globaler High-Visibility Fokusrahmen für 10-Foot TV UI */
+    /* Scharfer, hardware-beschleunigter TV-Fokusring ohne blur/shadow */
     :focus,
     :focus-visible,
     .${APP_CONFIG.FOCUS_CLASS} {
-      outline: 4px solid ${APP_CONFIG.FOCUS_COLOR} !important;
-      outline-offset: 3px !important;
-      box-shadow: 0 0 12px rgba(255, 102, 0, 0.8) !important;
-      transition: outline 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+      outline: 3px solid ${APP_CONFIG.FOCUS_COLOR} !important;
+      outline-offset: 2px !important;
     }
 
-    /* Weiches Scrollen bei Fokus-Wechsel */
-    html {
-      scroll-behavior: smooth !important;
-    }
-
-    /* Anime-Cover Hover-Effekt bei TV-Fokus sichtbar machen */
+    /* Anime-Cover Hover-Infos bei TV-Fokus sofort sichtbar machen */
     .coverListItem:focus-within .seriesListHorizontalEffect,
     .coverListItem:has(:focus) .seriesListHorizontalEffect {
       opacity: 1 !important;
@@ -44,8 +38,8 @@ export function injectFocusStyles() {
       position: absolute !important;
       overflow: visible !important;
       width: 175px !important;
-      border-radius: 5px !important;
-      padding-top: 15px !important;
+      border-radius: 4px !important;
+      padding-top: 10px !important;
       z-index: 999999 !important;
       left: -25px !important;
     }
@@ -68,7 +62,7 @@ export function injectFocusStyles() {
   `;
 
   document.head.appendChild(styleEl);
-  Logger.info("TV-Fokus-Styles erfolgreich injiziert.");
+  Logger.info("TV-Fokus-Styles optimiert injiziert.");
 }
 
 export function removeFocusStyles() {
@@ -78,4 +72,3 @@ export function removeFocusStyles() {
     Logger.info("TV-Fokus-Styles entfernt.");
   }
 }
-

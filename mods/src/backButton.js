@@ -1,7 +1,8 @@
 /**
  * backButton.js
  * Verwaltet die Zurück-Taste (Tizen Hardware-Taste 'tizenhwkey' & TV-Fernbedienungstaste 10009).
- * Schließt offene Menüs, navigiert in der Browser-Historie zurück oder beendet die App.
+ * Schließt offene Menüs, navigiert in der Browser-Historie zurück oder beendet das Modul sauber,
+ * sodass beim Verlassen kein Skript mehr in TizenBrew aktiv bleibt.
  */
 
 import { KEY_CODES } from "./constants.js";
@@ -11,8 +12,16 @@ import { Logger } from "./logger.js";
 let tizenHwKeyHandler = null;
 let keydownHandler = null;
 
+/**
+ * Prüft, ob sich der Nutzer auf der Root-Ebene (Startseite) von AniWorld befindet.
+ */
+function isAniWorldRoot() {
+  const path = window.location.pathname;
+  return path === "/" || path === "" || path === "/home";
+}
+
 function handleBackAction() {
-  Logger.info("Back-Taste betätigt.");
+  Logger.info("Back-Taste betätigt. Pfad:", window.location.pathname);
 
   // 1. Offene Dropdowns oder Modals schließen
   if (closeAllMenus()) {
@@ -20,37 +29,60 @@ function handleBackAction() {
     return true;
   }
 
-  // 2. In Browser-Historie zurückblättern
+  // 2. Befinden wir uns auf der Startseite / Root (aniworld.to)?
+  if (isAniWorldRoot()) {
+    Logger.info("Auf Root-Ebene (aniworld.to) - beende Modul und bereinige alle Ressourcen.");
+
+    // Modul vollständig uninitialisieren (Styles, Listener, Polyfill entfernen)
+    if (typeof window.__ANIWORLD_UNINIT__ === "function") {
+      try {
+        window.__ANIWORLD_UNINIT__();
+      } catch (e) {
+        Logger.error("Fehler beim Modul-Uninit auf Root:", e);
+      }
+    }
+
+    try {
+      sessionStorage.removeItem("aniworld_loaded");
+    } catch (e) {}
+
+    // In der Historie zurück zu TizenBrew navigieren
+    if (window.history.length > 1) {
+      window.history.back();
+      return true;
+    }
+
+    // Falls keine Browser-Historie vorhanden ist -> App schließen
+    if (typeof tizen !== "undefined" && tizen.application) {
+      try {
+        tizen.application.getCurrentApplication().exit();
+        return true;
+      } catch (e) {}
+    }
+
+    return false;
+  }
+
+  // 3. Auf Unterseiten (Anime-Detail, Stream etc.) normal im Browser zurückblättern
   if (window.history.length > 1) {
     Logger.info("Navigiere in Browser-Historie zurück.");
     window.history.back();
     return true;
   }
 
-  // 3. Wenn am Anfang der Historie -> App auf Samsung TV beenden
-  if (typeof tizen !== "undefined" && tizen.application) {
-    try {
-      Logger.info("Verlasse Tizen-Anwendung.");
-      tizen.application.getCurrentApplication().exit();
-      return true;
-    } catch (e) {
-      Logger.error("Fehler beim Beenden der Tizen-App:", e);
-    }
-  }
-
   return false;
 }
 
 export function initBackButton() {
-  // Samsung Tizen Hardware Key Event
   tizenHwKeyHandler = (event) => {
     if (event.keyName === "back") {
-      event.preventDefault();
-      handleBackAction();
+      const handled = handleBackAction();
+      if (handled) {
+        event.preventDefault();
+      }
     }
   };
 
-  // Standard Keydown Fallback (z. B. auf TV-Fernbedienung oder PC)
   keydownHandler = (event) => {
     const isBackKey =
       event.keyCode === KEY_CODES.TIZEN_BACK ||
@@ -59,15 +91,17 @@ export function initBackButton() {
       event.key === "Escape";
 
     if (isBackKey) {
-      event.preventDefault();
-      event.stopPropagation();
-      handleBackAction();
+      const handled = handleBackAction();
+      if (handled) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
     }
   };
 
   window.addEventListener("tizenhwkey", tizenHwKeyHandler);
   document.addEventListener("keydown", keydownHandler, true);
-  Logger.info("Back-Button-Handler initialisiert.");
+  Logger.info("Back-Button-Handler mit Root-Exit initialisiert.");
 }
 
 export function cleanupBackButton() {
@@ -83,4 +117,3 @@ export function cleanupBackButton() {
 
   Logger.info("Back-Button-Handler aufgeräumt.");
 }
-

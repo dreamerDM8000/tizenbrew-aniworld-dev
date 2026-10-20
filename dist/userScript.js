@@ -8,7 +8,7 @@
 
   const APP_CONFIG = {
     NAME: "AniWorld TV",
-    VERSION: "1.0.5",
+    VERSION: "1.0.7",
     STORAGE_CACHE_KEY: "aniworld_script_cache",
     STORAGE_SESSION_KEY: "aniworld_loaded",
     FOCUS_CLASS: "tv-focused",
@@ -33,10 +33,6 @@
 
   const KEY_CODES = {
     ENTER: 13,
-    ARROW_LEFT: 37,
-    ARROW_UP: 38,
-    ARROW_RIGHT: 39,
-    ARROW_DOWN: 40,
     // Tizen HW Back / Return
     TIZEN_BACK: 10009,
   };
@@ -71,7 +67,8 @@
 
   /**
    * focusRing.js
-   * Injiziert High-Visibility CSS für die TV-Fokusdarstellung und Hover-Simulationen.
+   * Schlankes, hochperformantes CSS für die TV-Fokusdarstellung.
+   * Optimiert für schwächere TV-Grafikchips (kein box-shadow, keine teuren Transitions).
    */
 
 
@@ -85,22 +82,15 @@
     const styleEl = document.createElement("style");
     styleEl.id = STYLE_ELEMENT_ID;
     styleEl.textContent = `
-    /* Globaler High-Visibility Fokusrahmen für 10-Foot TV UI */
+    /* Scharfer, hardware-beschleunigter TV-Fokusring ohne blur/shadow */
     :focus,
     :focus-visible,
     .${APP_CONFIG.FOCUS_CLASS} {
-      outline: 4px solid ${APP_CONFIG.FOCUS_COLOR} !important;
-      outline-offset: 3px !important;
-      box-shadow: 0 0 12px rgba(255, 102, 0, 0.8) !important;
-      transition: outline 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+      outline: 3px solid ${APP_CONFIG.FOCUS_COLOR} !important;
+      outline-offset: 2px !important;
     }
 
-    /* Weiches Scrollen bei Fokus-Wechsel */
-    html {
-      scroll-behavior: smooth !important;
-    }
-
-    /* Anime-Cover Hover-Effekt bei TV-Fokus sichtbar machen */
+    /* Anime-Cover Hover-Infos bei TV-Fokus sofort sichtbar machen */
     .coverListItem:focus-within .seriesListHorizontalEffect,
     .coverListItem:has(:focus) .seriesListHorizontalEffect {
       opacity: 1 !important;
@@ -113,8 +103,8 @@
       position: absolute !important;
       overflow: visible !important;
       width: 175px !important;
-      border-radius: 5px !important;
-      padding-top: 15px !important;
+      border-radius: 4px !important;
+      padding-top: 10px !important;
       z-index: 999999 !important;
       left: -25px !important;
     }
@@ -137,7 +127,7 @@
   `;
 
     document.head.appendChild(styleEl);
-    Logger.info("TV-Fokus-Styles erfolgreich injiziert.");
+    Logger.info("TV-Fokus-Styles optimiert injiziert.");
   }
 
   function removeFocusStyles() {
@@ -150,48 +140,70 @@
 
   /**
    * domEnhancer.js
-   * Augmentiert interaktive DOM-Elemente auf AniWorld mit tabindex="0",
-   * damit das W3C Spatial Navigation Polyfill sie zuverlässig fokussiert.
+   * Augmentiert interaktive DOM-Elemente mit tabindex="0" für das W3C Spatial Navigation Polyfill.
+   * Streng optimiert mit Caching und Debouncing für maximale TV-Performance.
    */
 
 
   let mutationObserver = null;
   let clickHandler = null;
+  let debounceTimeout = null;
+
+  // Erweitert Selektoren um :not([data-tv-ready]), um bereits augmentierte Elemente sofort zu überspringen
+  const SELECTOR_STRING = INTERACTIVE_AUGMENT_SELECTORS.map(
+    (s) => `${s}:not([data-tv-ready])`,
+  ).join(", ");
 
   /**
-   * Weist allen spezifischen interaktiven Elementen tabindex="0" zu.
+   * Weist interaktiven Elementen tabindex="0" zu.
    */
   function augmentInteractiveElements(root = document) {
     try {
-      const selector = INTERACTIVE_AUGMENT_SELECTORS.join(", ");
-      const elements = root.querySelectorAll(selector);
+      const elements = root.querySelectorAll(SELECTOR_STRING);
+      if (!elements || elements.length === 0) return;
 
-      elements.forEach((el) => {
+      for (let i = 0; i < elements.length; i++) {
+        const el = elements[i];
         if (!el.hasAttribute("tabindex")) {
           el.setAttribute("tabindex", "0");
         }
-        if (!el.hasAttribute("role") && el.tagName !== "A" && el.tagName !== "BUTTON") {
+        if (
+          !el.hasAttribute("role") &&
+          el.tagName !== "A" &&
+          el.tagName !== "BUTTON"
+        ) {
           el.setAttribute("role", "button");
         }
-      });
+        el.dataset.tvReady = "1";
+      }
     } catch (error) {
       Logger.error("Fehler beim Augmentieren der DOM-Elemente:", error);
     }
   }
 
   /**
-   * Initialisiert den DOM-Observer für dynamisch nachgeladene Inhalte
-   * und fängt Klicks auf interne target="_blank"-Links ab (im selben Tab öffnen).
+   * Debounced-Variante für den MutationObserver, um CPU-Spitzen auf dem TV zu vermeiden.
+   */
+  function debouncedAugment() {
+    if (debounceTimeout) return;
+    debounceTimeout = setTimeout(() => {
+      debounceTimeout = null;
+      augmentInteractiveElements();
+    }, 250);
+  }
+
+  /**
+   * Initialisiert den DOM-Observer und Klick-Handler.
    */
   function initDomEnhancer() {
     augmentInteractiveElements();
 
-    // MutationObserver für dynamischen Content (z. B. Filter, unendliches Scrollen)
     if (typeof MutationObserver !== "undefined" && document.body) {
       mutationObserver = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-          if (mutation.addedNodes.length > 0) {
-            augmentInteractiveElements();
+        // Nur reagieren, wenn tatsächlich neue Nodes eingefügt wurden
+        for (let i = 0; i < mutations.length; i++) {
+          if (mutations[i].addedNodes.length > 0) {
+            debouncedAugment();
             break;
           }
         }
@@ -203,14 +215,14 @@
       });
     }
 
-    // Links mit target="_blank" auf TV im aktuellen Fenster öffnen
+    // Links mit target="_blank" auf TV im selben Tab öffnen
     clickHandler = (event) => {
-      const anchor = event.target.closest("a[target='_blank']");
-      if (!anchor || !anchor.href) {
-        return;
-      }
+      const target = event.target;
+      if (!target || !(target instanceof Element)) return;
 
-      // Wenn es sich um einen internen Link handelt, im selben Tab öffnen
+      const anchor = target.closest("a[target='_blank']");
+      if (!anchor || !anchor.href) return;
+
       try {
         const targetUrl = new URL(anchor.href, window.location.href);
         if (targetUrl.hostname.includes("aniworld.to")) {
@@ -218,19 +230,19 @@
           event.stopPropagation();
           window.location.href = anchor.href;
         }
-      } catch (e) {
-        // Ignorieren bei ungültigen URLs
-      }
+      } catch (e) {}
     };
 
     document.addEventListener("click", clickHandler, true);
-    Logger.info("DOM-Enhancer initialisiert.");
+    Logger.info("DOM-Enhancer (Performance-optimiert) initialisiert.");
   }
 
-  /**
-   * Bereinigt Observer und Event-Listener beim Verlassen der Seite.
-   */
   function cleanupDomEnhancer() {
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+      debounceTimeout = null;
+    }
+
     if (mutationObserver) {
       mutationObserver.disconnect();
       mutationObserver = null;
@@ -246,55 +258,59 @@
 
   /**
    * menuController.js
-   * Verwaltet TV-Dropdown-Menüs (wie 'mehr' und User-Profil),
-   * damit diese bei Fokus oder Klick geöffnet bleiben und per Back-Taste geschlossen werden können.
+   * Verwaltet TV-Dropdown-Menüs (wie 'mehr' und User-Profil) mit minimaler CPU-Last.
    */
 
 
   let focusInHandler = null;
   let keydownHandler$1 = null;
+  let activeOpenMenu = null;
 
   /**
-   * Schließt alle aktuell geöffneten TV-Menüs.
+   * Schließt das aktuell geöffnete TV-Menü in O(1).
    * @returns {boolean} True, wenn ein Menü geöffnet war und geschlossen wurde.
    */
   function closeAllMenus() {
-    const openMenus = document.querySelectorAll(`.${APP_CONFIG.MENU_OPEN_CLASS}`);
-    if (openMenus.length > 0) {
-      openMenus.forEach((el) => el.classList.remove(APP_CONFIG.MENU_OPEN_CLASS));
-      Logger.debug("Geöffnete Menüs geschlossen.");
+    if (activeOpenMenu) {
+      activeOpenMenu.classList.remove(APP_CONFIG.MENU_OPEN_CLASS);
+      activeOpenMenu = null;
+      Logger.debug("Aktives Menü geschlossen.");
       return true;
     }
     return false;
   }
 
   /**
-   * Initialisiert die Menüsteuerung für TV-Fokus und Enter.
+   * Initialisiert die Menüsteuerung.
    */
   function initMenuController() {
-    // Wenn der Fokus in ein Menü oder dessen Trigger wandert
     focusInHandler = (event) => {
       const focusedEl = event.target;
       if (!focusedEl || !(focusedEl instanceof Element)) return;
 
-      // Dropdown 'mehr'
+      let targetMenu = null;
+
+      // Prüfen, ob der Fokus in einem Menü liegt
       const moreMenuLi = focusedEl.closest(".primary-navigation > ul > li");
       if (moreMenuLi && moreMenuLi.querySelector("ul")) {
-        moreMenuLi.classList.add(APP_CONFIG.MENU_OPEN_CLASS);
+        targetMenu = moreMenuLi;
       } else {
-        document
-          .querySelectorAll(`.primary-navigation > ul > li.${APP_CONFIG.MENU_OPEN_CLASS}`)
-          .forEach((li) => li.classList.remove(APP_CONFIG.MENU_OPEN_CLASS));
+        const ddContainer = focusedEl.closest(".dd");
+        if (ddContainer) {
+          targetMenu = ddContainer;
+        }
       }
 
-      // User-Menü (.dd)
-      const ddContainer = focusedEl.closest(".dd");
-      if (ddContainer) {
-        ddContainer.classList.add(APP_CONFIG.MENU_OPEN_CLASS);
-      } else {
-        document
-          .querySelectorAll(`.dd.${APP_CONFIG.MENU_OPEN_CLASS}`)
-          .forEach((dd) => dd.classList.remove(APP_CONFIG.MENU_OPEN_CLASS));
+      if (targetMenu) {
+        if (activeOpenMenu && activeOpenMenu !== targetMenu) {
+          activeOpenMenu.classList.remove(APP_CONFIG.MENU_OPEN_CLASS);
+        }
+        targetMenu.classList.add(APP_CONFIG.MENU_OPEN_CLASS);
+        activeOpenMenu = targetMenu;
+      } else if (activeOpenMenu) {
+        // Fokus hat das Menü verlassen
+        activeOpenMenu.classList.remove(APP_CONFIG.MENU_OPEN_CLASS);
+        activeOpenMenu = null;
       }
     };
 
@@ -304,16 +320,15 @@
         const activeEl = document.activeElement;
         if (!activeEl) return;
 
-        // Klick auf 'mehr' Trigger
         if (activeEl.matches(".primary-navigation > ul > li > strong")) {
           const parentLi = activeEl.closest("li");
           if (parentLi) {
             const isOpen = parentLi.classList.toggle(APP_CONFIG.MENU_OPEN_CLASS);
+            activeOpenMenu = isOpen ? parentLi : null;
             if (isOpen) {
-              // Fokus auf erstes Sub-Element setzen, falls vorhanden
               const firstSubLink = parentLi.querySelector("ul li a");
               if (firstSubLink) {
-                setTimeout(() => firstSubLink.focus(), 50);
+                firstSubLink.focus();
               }
             }
             event.preventDefault();
@@ -324,12 +339,9 @@
 
     document.addEventListener("focusin", focusInHandler, true);
     document.addEventListener("keydown", keydownHandler$1, true);
-    Logger.info("Menu-Controller initialisiert.");
+    Logger.info("Menu-Controller (O(1) optimiert) initialisiert.");
   }
 
-  /**
-   * Bereinigt die Event-Listener der Menüsteuerung.
-   */
   function cleanupMenuController() {
     if (focusInHandler) {
       document.removeEventListener("focusin", focusInHandler, true);
@@ -348,15 +360,24 @@
   /**
    * backButton.js
    * Verwaltet die Zurück-Taste (Tizen Hardware-Taste 'tizenhwkey' & TV-Fernbedienungstaste 10009).
-   * Schließt offene Menüs, navigiert in der Browser-Historie zurück oder beendet die App.
+   * Schließt offene Menüs, navigiert in der Browser-Historie zurück oder beendet das Modul sauber,
+   * sodass beim Verlassen kein Skript mehr in TizenBrew aktiv bleibt.
    */
 
 
   let tizenHwKeyHandler = null;
   let keydownHandler = null;
 
+  /**
+   * Prüft, ob sich der Nutzer auf der Root-Ebene (Startseite) von AniWorld befindet.
+   */
+  function isAniWorldRoot() {
+    const path = window.location.pathname;
+    return path === "/" || path === "" || path === "/home";
+  }
+
   function handleBackAction() {
-    Logger.info("Back-Taste betätigt.");
+    Logger.info("Back-Taste betätigt. Pfad:", window.location.pathname);
 
     // 1. Offene Dropdowns oder Modals schließen
     if (closeAllMenus()) {
@@ -364,37 +385,60 @@
       return true;
     }
 
-    // 2. In Browser-Historie zurückblättern
+    // 2. Befinden wir uns auf der Startseite / Root (aniworld.to)?
+    if (isAniWorldRoot()) {
+      Logger.info("Auf Root-Ebene (aniworld.to) - beende Modul und bereinige alle Ressourcen.");
+
+      // Modul vollständig uninitialisieren (Styles, Listener, Polyfill entfernen)
+      if (typeof window.__ANIWORLD_UNINIT__ === "function") {
+        try {
+          window.__ANIWORLD_UNINIT__();
+        } catch (e) {
+          Logger.error("Fehler beim Modul-Uninit auf Root:", e);
+        }
+      }
+
+      try {
+        sessionStorage.removeItem("aniworld_loaded");
+      } catch (e) {}
+
+      // In der Historie zurück zu TizenBrew navigieren
+      if (window.history.length > 1) {
+        window.history.back();
+        return true;
+      }
+
+      // Falls keine Browser-Historie vorhanden ist -> App schließen
+      if (typeof tizen !== "undefined" && tizen.application) {
+        try {
+          tizen.application.getCurrentApplication().exit();
+          return true;
+        } catch (e) {}
+      }
+
+      return false;
+    }
+
+    // 3. Auf Unterseiten (Anime-Detail, Stream etc.) normal im Browser zurückblättern
     if (window.history.length > 1) {
       Logger.info("Navigiere in Browser-Historie zurück.");
       window.history.back();
       return true;
     }
 
-    // 3. Wenn am Anfang der Historie -> App auf Samsung TV beenden
-    if (typeof tizen !== "undefined" && tizen.application) {
-      try {
-        Logger.info("Verlasse Tizen-Anwendung.");
-        tizen.application.getCurrentApplication().exit();
-        return true;
-      } catch (e) {
-        Logger.error("Fehler beim Beenden der Tizen-App:", e);
-      }
-    }
-
     return false;
   }
 
   function initBackButton() {
-    // Samsung Tizen Hardware Key Event
     tizenHwKeyHandler = (event) => {
       if (event.keyName === "back") {
-        event.preventDefault();
-        handleBackAction();
+        const handled = handleBackAction();
+        if (handled) {
+          event.preventDefault();
+        }
       }
     };
 
-    // Standard Keydown Fallback (z. B. auf TV-Fernbedienung oder PC)
     keydownHandler = (event) => {
       const isBackKey =
         event.keyCode === KEY_CODES.TIZEN_BACK ||
@@ -403,15 +447,17 @@
         event.key === "Escape";
 
       if (isBackKey) {
-        event.preventDefault();
-        event.stopPropagation();
-        handleBackAction();
+        const handled = handleBackAction();
+        if (handled) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
       }
     };
 
     window.addEventListener("tizenhwkey", tizenHwKeyHandler);
     document.addEventListener("keydown", keydownHandler, true);
-    Logger.info("Back-Button-Handler initialisiert.");
+    Logger.info("Back-Button-Handler mit Root-Exit initialisiert.");
   }
 
   function cleanupBackButton() {
@@ -2181,45 +2227,35 @@
 
   /**
    * spatialNav.js
-   * Bindet das offizielle W3C Spatial Navigation Polyfill ein, stellt sicher,
-   * dass Key-Events korrekt verarbeitet werden und setzt den initialen Fokus auf TV.
+   * Anbindung des W3C Spatial Navigation Polyfills mit Fokus auf maximale TV-Performance.
+   * Nutzt das interne Caching des Polyfills ohne redundante Layout-Berechnungen.
    */
 
 
-  let keydownFallbackHandler = null;
-  let focusChangeHandler = null;
-
-  const ARROW_DIRECTIONS = {
-    [KEY_CODES.ARROW_LEFT]: "left",
-    [KEY_CODES.ARROW_UP]: "up",
-    [KEY_CODES.ARROW_RIGHT]: "right",
-    [KEY_CODES.ARROW_DOWN]: "down",
-    ArrowLeft: "left",
-    ArrowUp: "up",
-    ArrowRight: "right",
-    ArrowDown: "down",
-  };
+  let enterKeyHandler = null;
 
   /**
-   * Setzt den Anfangsfokus auf das erste sinnvolle Element der Seite.
+   * Setzt den Anfangsfokus schnell auf das erste sichtbare Hauptelement.
    */
   function setInitialFocus() {
     try {
-      // Falls bereits ein Element fokussiert ist (außer body/html)
-      if (document.activeElement && document.activeElement !== document.body && document.activeElement !== document.documentElement) {
+      if (
+        document.activeElement &&
+        document.activeElement !== document.body &&
+        document.activeElement !== document.documentElement
+      ) {
         return;
       }
 
-      // Bevorzugt erste Navigationsverlinkung oder erstes Anime-Cover
       const candidate =
         document.querySelector(".primary-navigation a") ||
-        document.querySelector(".homeContentPromotionBoxPicture a") ||
         document.querySelector(".coverListItem a") ||
+        document.querySelector(".homeContentPromotionBoxPicture a") ||
         document.querySelector("a[href]");
 
       if (candidate && typeof candidate.focus === "function") {
         candidate.focus();
-        Logger.info("Initialer Fokus gesetzt auf:", candidate);
+        Logger.info("Initialer TV-Fokus gesetzt auf:", candidate);
       }
     } catch (e) {
       Logger.warn("Konnte initialen Fokus nicht setzen:", e);
@@ -2227,98 +2263,285 @@
   }
 
   /**
-   * Initialisiert die Spatial Navigation und Event-Listener.
+   * Initialisiert die Spatial Navigation.
    */
   function initSpatialNav() {
-    // Falls die Seite schon vollständig geladen war, bevor das Skript injiziert wurde:
-    // Polyfill-Load-Event triggern, damit spatialNavigationHandler() aktiv wird.
-    if (document.readyState === "complete") {
+    // Polyfill-Tastenmodus aktivieren
+    if (window.__spatialNavigation__) {
       try {
-        window.dispatchEvent(new Event("load"));
-      } catch (e) {
-        // Ignorieren falls nicht erlaubt
-      }
+        window.__spatialNavigation__.keyMode = "ARROW";
+      } catch (e) {}
     }
 
-    // Fallback-Navigation & Enter-Key-Handling für Nicht-Standard-Elemente (z.B. div/span-Buttons)
-    keydownFallbackHandler = (event) => {
-      // 1. Enter-Taste: Klick auf aktives Element auslösen (z. B. Karussell-Pfeile, Dropdown-Header)
+    // 1. Polyfill-Load-Event triggern, damit spatialNavigationHandler() sofort aktiv wird
+    // und sein internes Bounding-Box-Caching (mapOfBoundRect) aktiviert.
+    if (
+      document.readyState === "complete" ||
+      document.readyState === "interactive"
+    ) {
+      try {
+        window.dispatchEvent(new Event("load"));
+      } catch (e) {}
+    }
+
+    // 2. Schlanker Enter-Key-Handler für Nicht-Standard-Buttons (z. B. Karussell-Pfeile span[data-action])
+    enterKeyHandler = (event) => {
       if (event.keyCode === KEY_CODES.ENTER || event.key === "Enter") {
         const active = document.activeElement;
-        if (active && active !== document.body && active.tagName !== "INPUT" && active.tagName !== "TEXTAREA") {
-          // Bei Buttons und Links führt der Browser Enter oft nativ aus, bei div/span nicht
+        if (
+          active &&
+          active !== document.body &&
+          active.tagName !== "INPUT" &&
+          active.tagName !== "TEXTAREA"
+        ) {
           if (active.tagName !== "A" && active.tagName !== "BUTTON") {
             active.click();
             event.preventDefault();
           }
         }
-        return;
-      }
-
-      // 2. Richtungstasten: Falls das Polyfill-Event noch nicht gegriffen hat
-      const direction = ARROW_DIRECTIONS[event.keyCode] || ARROW_DIRECTIONS[event.key];
-      if (direction && typeof window.navigate === "function") {
-        // Wenn das Event noch nicht abgefangen wurde
-        if (!event.defaultPrevented) {
-          event.preventDefault();
-          window.navigate(direction);
-        }
       }
     };
 
-    // Scrollt das fokussierte Element automatisch mittig ins Sichtfeld (TV 10-Foot UI)
-    focusChangeHandler = (event) => {
-      const target = event.target;
-      if (target && target instanceof Element && target !== document.body) {
-        try {
-          target.scrollIntoView({
-            behavior: "smooth",
-            block: "nearest",
-            inline: "nearest",
-          });
-        } catch (e) {
-          // Fallback
-        }
-      }
-    };
+    window.addEventListener("keydown", enterKeyHandler, true);
 
-    window.addEventListener("keydown", keydownFallbackHandler, true);
-    window.addEventListener("focusin", focusChangeHandler, true);
+    // Initialen Fokus setzen (kurzer Delay für DOM-Bereitschaft)
+    setTimeout(setInitialFocus, 250);
 
-    // Initialen Fokus mit kurzem Delay setzen, damit das DOM bereit ist
-    setTimeout(setInitialFocus, 400);
+    Logger.info("Spatial Navigation (Performance-optimiert) aktiv.");
+  }
 
-    Logger.info("Spatial Navigation erfolgreich initialisiert.");
+  function cleanupSpatialNav() {
+    if (enterKeyHandler) {
+      window.removeEventListener("keydown", enterKeyHandler, true);
+      enterKeyHandler = null;
+    }
+
+    // Polyfill vollständig deaktivieren, damit nach Verlassen des Moduls keine Pfeiltasten abgefangen werden
+    if (window.__spatialNavigation__) {
+      try {
+        window.__spatialNavigation__.keyMode = "NONE";
+      } catch (e) {}
+    }
+
+    Logger.info("Spatial Navigation aufgeräumt und deaktiviert.");
   }
 
   /**
-   * Bereinigt die Event-Listener der Spatial Navigation.
+   * adBlocker.js
+   * Performanter Schutz vor Popups, Popundern und ungewollten Weiterleitungen beim Abspielen von Videos.
+   * Speziell optimiert für Samsung Tizen Smart TVs (keine teuren DOM-Scans).
    */
-  function cleanupSpatialNav() {
-    if (keydownFallbackHandler) {
-      window.removeEventListener("keydown", keydownFallbackHandler, true);
-      keydownFallbackHandler = null;
+
+
+  let clickInterceptor = null;
+  let iframeObserver = null;
+
+  // Bekannte Ad- und Tracking-Domains bzw. verdächtige Muster
+  const AD_DOMAIN_PATTERNS = [
+    "popads",
+    "popcash",
+    "betting",
+    "casino",
+    "adserver",
+    "onclick",
+    "traffic",
+    "doubleclick",
+    "adnxs",
+    "syndication",
+    "adsystem",
+    "redirect",
+  ];
+
+  /**
+   * Prüft, ob eine URL verdächtig ist oder zu einem Ad-Netzwerk gehört.
+   */
+  function isSuspiciousUrl(urlString) {
+    if (!urlString) return false;
+    const lower = urlString.toLowerCase();
+    return AD_DOMAIN_PATTERNS.some((pattern) => lower.includes(pattern));
+  }
+
+  /**
+   * Schützt Video-Player-Iframes davor, die Hauptseite umzuleiten (Top-Navigation Hijacking).
+   */
+  function securePlayerIframes(root = document) {
+    try {
+      const iframes = root.querySelectorAll("iframe");
+      iframes.forEach((iframe) => {
+        // Wenn bereits gesichert, überspringen
+        if (iframe.dataset.tvSecured) return;
+
+        // Verhindert, dass das Iframe die Top-Window-Location ändert oder Popups öffnet
+        // Erlaubt weiterhin Scripts, Same-Origin und HTML5-Videowiedergabe
+        const currentSandbox = iframe.getAttribute("sandbox");
+        if (!currentSandbox) {
+          iframe.setAttribute(
+            "sandbox",
+            "allow-scripts allow-same-origin allow-forms allow-presentation",
+          );
+        }
+
+        iframe.dataset.tvSecured = "1";
+      });
+    } catch (e) {
+      // Stilles Abfangen
+    }
+  }
+
+  /**
+   * Entfernt transparente Fake-Overlay-Elemente, die Klicks auf Video-Playern abfangen.
+   */
+  function removeInvisibleAdOverlays() {
+    try {
+      // Typische transparente Ad-Layer über Video-Playern
+      const overlays = document.querySelectorAll(
+        "div[style*='z-index: 2147483647'], div[style*='z-index: 999999'], a[target='_blank'][style*='position: absolute']",
+      );
+
+      overlays.forEach((el) => {
+        // Nur Elemente entfernen, die keine echten TV-Elemente sind
+        if (el.id !== "aniworld-loader-toast" && !el.closest(".main-header")) {
+          const style = window.getComputedStyle(el);
+          if (style.opacity === "0" || style.pointerEvents === "auto") {
+            el.remove();
+            Logger.info("[AdBlock] Unsichtbares Werbe-Overlay entfernt.");
+          }
+        }
+      });
+    } catch (e) {}
+  }
+
+  function initAdBlocker() {
+    Logger.info("Initialisiere TV-AdBlocker & Redirect-Schutz...");
+
+    // 1. window.open neutralisieren (verhindert Popups & Popunder bei Video-Klicks)
+    try {
+      window.open = function (url) {
+        Logger.info("[AdBlock] window.open blockiert:", url);
+        return null;
+      };
+    } catch (e) {
+      Logger.warn("[AdBlock] window.open konnte nicht überschrieben werden:", e);
     }
 
-    if (focusChangeHandler) {
-      window.removeEventListener("focusin", focusChangeHandler, true);
-      focusChangeHandler = null;
+    // 2. document.write neutralisieren (verhindert synchrone Ad-Injektionen)
+    try {
+      document.write = function () {};
+      document.writeln = function () {};
+    } catch (e) {}
+
+    // 3. Klick-Interception im Capture-Phase (fängt Klicks auf Fake-Ads und externe Links ab)
+    clickInterceptor = (event) => {
+      const target = event.target;
+      if (!target || !(target instanceof Element)) return;
+
+      // A-Tag oder übergeordneten Link finden
+      const anchor = target.closest("a");
+      if (!anchor) return;
+
+      const href = anchor.getAttribute("href") || "";
+
+      // Normale interne Navigation nicht blockieren
+      if (href.startsWith("#") || href.startsWith("javascript:")) {
+        return;
+      }
+
+      try {
+        const url = new URL(anchor.href, window.location.href);
+
+        // Verdächtige Ad-Links sofort blockieren
+        if (isSuspiciousUrl(url.href)) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          Logger.info("[AdBlock] Klick auf Ad-Link unterbunden:", url.href);
+          return;
+        }
+
+        // Wenn das Ziel extern ist und target="_blank" hat, aber nicht zu AniWorld gehört:
+        const currentHost = window.location.hostname;
+        if (url.hostname !== currentHost && anchor.target === "_blank") {
+          // Nicht zu AniWorld gehörende Popups/Ads verhindern
+          if (
+            !url.hostname.includes("aniworld") &&
+            !url.hostname.includes("s.to")
+          ) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            Logger.info(
+              "[AdBlock] Ungewollte Weiterleitung zu externer Seite blockiert:",
+              url.href,
+            );
+          }
+        }
+      } catch (e) {}
+    };
+
+    document.addEventListener("click", clickInterceptor, true);
+
+    // 4. Iframes sichern und unsichtbare Layer entfernen
+    securePlayerIframes();
+    removeInvisibleAdOverlays();
+
+    // Observer für neu geladene Video-Iframes (z. B. nach Hoster-Auswahl)
+    if (typeof MutationObserver !== "undefined" && document.body) {
+      let debounceTimer = null;
+      iframeObserver = new MutationObserver(() => {
+        if (debounceTimer) return;
+        debounceTimer = setTimeout(() => {
+          debounceTimer = null;
+          securePlayerIframes();
+          removeInvisibleAdOverlays();
+        }, 350);
+      });
+
+      iframeObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
     }
 
-    Logger.info("Spatial Navigation aufgeräumt.");
+    Logger.info("TV-AdBlocker aktiv.");
+  }
+
+  function cleanupAdBlocker() {
+    if (clickInterceptor) {
+      document.removeEventListener("click", clickInterceptor, true);
+      clickInterceptor = null;
+    }
+
+    if (iframeObserver) {
+      iframeObserver.disconnect();
+      iframeObserver = null;
+    }
+
+    Logger.info("TV-AdBlocker aufgeräumt.");
   }
 
   /**
    * index.js
    * Haupt-Entrypoint für das injizierte TizenBrew AniWorld TV Modul.
    * Koordiniert Initialisierung, Module und Lifecycle-Cleanup.
+   *
+   * SICHERHEIT: Läuft ausschließlich auf aniworld.to!
    */
 
 
   (() => {
+    // Strikte Domain-Prüfung: Das Skript darf NUR auf aniworld.to ausgeführt werden!
+    // Sobald der Nutzer zurück in TizenBrew oder auf einer anderen URL ist, bricht das Skript sofort ab.
+    const hostname = window.location.hostname;
+    if (!hostname || !hostname.includes("aniworld.to")) {
+      return;
+    }
+
     window.SCRIPT_VERSION = APP_CONFIG.VERSION;
 
     function init() {
+      // Erneute Prüfung vor Initialisierung
+      if (!window.location.hostname.includes("aniworld.to")) {
+        return;
+      }
+
       if (window.__ANIWORLD_INITIALIZED__) {
         Logger.warn("Bereits initialisiert.");
         return;
@@ -2327,19 +2550,22 @@
       try {
         Logger.info(`Initialisiere ${APP_CONFIG.NAME} v${APP_CONFIG.VERSION}...`);
 
-        // 1. High-Visibility Fokus-Styles injizieren
+        // 1. Popup- & Werbe-Schutz (besonders für Video-Playback)
+        initAdBlocker();
+
+        // 2. High-Visibility Fokus-Styles injizieren (performance-optimiert)
         injectFocusStyles();
 
-        // 2. DOM-Elemente augmentieren (Tabindex für Karussell & Buttons)
+        // 3. DOM-Elemente augmentieren (Tabindex für Karussell & Buttons)
         initDomEnhancer();
 
-        // 3. Dropdown- und Menüsteuerung aktivieren
+        // 4. Dropdown- und Menüsteuerung aktivieren
         initMenuController();
 
-        // 4. Zurück-Taste (Tizen HW Key & History) einrichten
+        // 5. Zurück-Taste (Tizen HW Key & History) einrichten
         initBackButton();
 
-        // 5. W3C Spatial Navigation starten
+        // 6. W3C Spatial Navigation starten
         initSpatialNav();
 
         window.__ANIWORLD_INITIALIZED__ = true;
@@ -2361,6 +2587,7 @@
         cleanupBackButton();
         cleanupMenuController();
         cleanupDomEnhancer();
+        cleanupAdBlocker();
         removeFocusStyles();
 
         window.__ANIWORLD_INITIALIZED__ = false;
@@ -2376,11 +2603,11 @@
 
     // Warten bis DOM bereit ist
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => setTimeout(init, 300), {
+      document.addEventListener("DOMContentLoaded", () => setTimeout(init, 150), {
         once: true,
       });
     } else {
-      setTimeout(init, 300);
+      setTimeout(init, 150);
     }
 
     // Fallback-Start falls DOMContentLoaded auf älteren Tizen-Versionen ausbleibt
@@ -2388,7 +2615,7 @@
       if (!window.__ANIWORLD_INITIALIZED__) {
         init();
       }
-    }, 3000);
+    }, 2000);
   })();
 
 })();

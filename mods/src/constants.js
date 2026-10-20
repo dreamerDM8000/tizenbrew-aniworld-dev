@@ -5,7 +5,7 @@
 
 export const APP_CONFIG = {
   NAME: "AniWorld TV",
-  VERSION: "1.0.5",
+  VERSION: "1.0.7",
   STORAGE_CACHE_KEY: "aniworld_script_cache",
   STORAGE_SESSION_KEY: "aniworld_loaded",
   FOCUS_CLASS: "tv-focused",

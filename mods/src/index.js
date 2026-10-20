@@ -2,6 +2,8 @@
  * index.js
  * Haupt-Entrypoint für das injizierte TizenBrew AniWorld TV Modul.
  * Koordiniert Initialisierung, Module und Lifecycle-Cleanup.
+ *
+ * SICHERHEIT: Läuft ausschließlich auf aniworld.to!
  */
 
 import { APP_CONFIG } from "./constants.js";
@@ -11,11 +13,24 @@ import { initDomEnhancer, cleanupDomEnhancer } from "./domEnhancer.js";
 import { initMenuController, cleanupMenuController } from "./menuController.js";
 import { initBackButton, cleanupBackButton } from "./backButton.js";
 import { initSpatialNav, cleanupSpatialNav } from "./spatialNav.js";
+import { initAdBlocker, cleanupAdBlocker } from "./adBlocker.js";
 
 (() => {
+  // Strikte Domain-Prüfung: Das Skript darf NUR auf aniworld.to ausgeführt werden!
+  // Sobald der Nutzer zurück in TizenBrew oder auf einer anderen URL ist, bricht das Skript sofort ab.
+  const hostname = window.location.hostname;
+  if (!hostname || !hostname.includes("aniworld.to")) {
+    return;
+  }
+
   window.SCRIPT_VERSION = APP_CONFIG.VERSION;
 
   function init() {
+    // Erneute Prüfung vor Initialisierung
+    if (!window.location.hostname.includes("aniworld.to")) {
+      return;
+    }
+
     if (window.__ANIWORLD_INITIALIZED__) {
       Logger.warn("Bereits initialisiert.");
       return;
@@ -24,19 +39,22 @@ import { initSpatialNav, cleanupSpatialNav } from "./spatialNav.js";
     try {
       Logger.info(`Initialisiere ${APP_CONFIG.NAME} v${APP_CONFIG.VERSION}...`);
 
-      // 1. High-Visibility Fokus-Styles injizieren
+      // 1. Popup- & Werbe-Schutz (besonders für Video-Playback)
+      initAdBlocker();
+
+      // 2. High-Visibility Fokus-Styles injizieren (performance-optimiert)
       injectFocusStyles();
 
-      // 2. DOM-Elemente augmentieren (Tabindex für Karussell & Buttons)
+      // 3. DOM-Elemente augmentieren (Tabindex für Karussell & Buttons)
       initDomEnhancer();
 
-      // 3. Dropdown- und Menüsteuerung aktivieren
+      // 4. Dropdown- und Menüsteuerung aktivieren
       initMenuController();
 
-      // 4. Zurück-Taste (Tizen HW Key & History) einrichten
+      // 5. Zurück-Taste (Tizen HW Key & History) einrichten
       initBackButton();
 
-      // 5. W3C Spatial Navigation starten
+      // 6. W3C Spatial Navigation starten
       initSpatialNav();
 
       window.__ANIWORLD_INITIALIZED__ = true;
@@ -58,6 +76,7 @@ import { initSpatialNav, cleanupSpatialNav } from "./spatialNav.js";
       cleanupBackButton();
       cleanupMenuController();
       cleanupDomEnhancer();
+      cleanupAdBlocker();
       removeFocusStyles();
 
       window.__ANIWORLD_INITIALIZED__ = false;
@@ -73,11 +92,11 @@ import { initSpatialNav, cleanupSpatialNav } from "./spatialNav.js";
 
   // Warten bis DOM bereit ist
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => setTimeout(init, 300), {
+    document.addEventListener("DOMContentLoaded", () => setTimeout(init, 150), {
       once: true,
     });
   } else {
-    setTimeout(init, 300);
+    setTimeout(init, 150);
   }
 
   // Fallback-Start falls DOMContentLoaded auf älteren Tizen-Versionen ausbleibt
@@ -85,6 +104,5 @@ import { initSpatialNav, cleanupSpatialNav } from "./spatialNav.js";
     if (!window.__ANIWORLD_INITIALIZED__) {
       init();
     }
-  }, 3000);
+  }, 2000);
 })();
-

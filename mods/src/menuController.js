@@ -1,7 +1,6 @@
 /**
  * menuController.js
- * Verwaltet TV-Dropdown-Menüs (wie 'mehr' und User-Profil),
- * damit diese bei Fokus oder Klick geöffnet bleiben und per Back-Taste geschlossen werden können.
+ * Verwaltet TV-Dropdown-Menüs (wie 'mehr' und User-Profil) mit minimaler CPU-Last.
  */
 
 import { APP_CONFIG } from "./constants.js";
@@ -9,48 +8,53 @@ import { Logger } from "./logger.js";
 
 let focusInHandler = null;
 let keydownHandler = null;
+let activeOpenMenu = null;
 
 /**
- * Schließt alle aktuell geöffneten TV-Menüs.
+ * Schließt das aktuell geöffnete TV-Menü in O(1).
  * @returns {boolean} True, wenn ein Menü geöffnet war und geschlossen wurde.
  */
 export function closeAllMenus() {
-  const openMenus = document.querySelectorAll(`.${APP_CONFIG.MENU_OPEN_CLASS}`);
-  if (openMenus.length > 0) {
-    openMenus.forEach((el) => el.classList.remove(APP_CONFIG.MENU_OPEN_CLASS));
-    Logger.debug("Geöffnete Menüs geschlossen.");
+  if (activeOpenMenu) {
+    activeOpenMenu.classList.remove(APP_CONFIG.MENU_OPEN_CLASS);
+    activeOpenMenu = null;
+    Logger.debug("Aktives Menü geschlossen.");
     return true;
   }
   return false;
 }
 
 /**
- * Initialisiert die Menüsteuerung für TV-Fokus und Enter.
+ * Initialisiert die Menüsteuerung.
  */
 export function initMenuController() {
-  // Wenn der Fokus in ein Menü oder dessen Trigger wandert
   focusInHandler = (event) => {
     const focusedEl = event.target;
     if (!focusedEl || !(focusedEl instanceof Element)) return;
 
-    // Dropdown 'mehr'
+    let targetMenu = null;
+
+    // Prüfen, ob der Fokus in einem Menü liegt
     const moreMenuLi = focusedEl.closest(".primary-navigation > ul > li");
     if (moreMenuLi && moreMenuLi.querySelector("ul")) {
-      moreMenuLi.classList.add(APP_CONFIG.MENU_OPEN_CLASS);
+      targetMenu = moreMenuLi;
     } else {
-      document
-        .querySelectorAll(`.primary-navigation > ul > li.${APP_CONFIG.MENU_OPEN_CLASS}`)
-        .forEach((li) => li.classList.remove(APP_CONFIG.MENU_OPEN_CLASS));
+      const ddContainer = focusedEl.closest(".dd");
+      if (ddContainer) {
+        targetMenu = ddContainer;
+      }
     }
 
-    // User-Menü (.dd)
-    const ddContainer = focusedEl.closest(".dd");
-    if (ddContainer) {
-      ddContainer.classList.add(APP_CONFIG.MENU_OPEN_CLASS);
-    } else {
-      document
-        .querySelectorAll(`.dd.${APP_CONFIG.MENU_OPEN_CLASS}`)
-        .forEach((dd) => dd.classList.remove(APP_CONFIG.MENU_OPEN_CLASS));
+    if (targetMenu) {
+      if (activeOpenMenu && activeOpenMenu !== targetMenu) {
+        activeOpenMenu.classList.remove(APP_CONFIG.MENU_OPEN_CLASS);
+      }
+      targetMenu.classList.add(APP_CONFIG.MENU_OPEN_CLASS);
+      activeOpenMenu = targetMenu;
+    } else if (activeOpenMenu) {
+      // Fokus hat das Menü verlassen
+      activeOpenMenu.classList.remove(APP_CONFIG.MENU_OPEN_CLASS);
+      activeOpenMenu = null;
     }
   };
 
@@ -60,16 +64,15 @@ export function initMenuController() {
       const activeEl = document.activeElement;
       if (!activeEl) return;
 
-      // Klick auf 'mehr' Trigger
       if (activeEl.matches(".primary-navigation > ul > li > strong")) {
         const parentLi = activeEl.closest("li");
         if (parentLi) {
           const isOpen = parentLi.classList.toggle(APP_CONFIG.MENU_OPEN_CLASS);
+          activeOpenMenu = isOpen ? parentLi : null;
           if (isOpen) {
-            // Fokus auf erstes Sub-Element setzen, falls vorhanden
             const firstSubLink = parentLi.querySelector("ul li a");
             if (firstSubLink) {
-              setTimeout(() => firstSubLink.focus(), 50);
+              firstSubLink.focus();
             }
           }
           event.preventDefault();
@@ -80,12 +83,9 @@ export function initMenuController() {
 
   document.addEventListener("focusin", focusInHandler, true);
   document.addEventListener("keydown", keydownHandler, true);
-  Logger.info("Menu-Controller initialisiert.");
+  Logger.info("Menu-Controller (O(1) optimiert) initialisiert.");
 }
 
-/**
- * Bereinigt die Event-Listener der Menüsteuerung.
- */
 export function cleanupMenuController() {
   if (focusInHandler) {
     document.removeEventListener("focusin", focusInHandler, true);
@@ -100,4 +100,3 @@ export function cleanupMenuController() {
   closeAllMenus();
   Logger.info("Menu-Controller aufgeräumt.");
 }
-

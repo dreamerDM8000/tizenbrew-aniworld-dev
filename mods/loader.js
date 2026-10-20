@@ -2,11 +2,19 @@
  * loader.js
  * TizenBrew Script Injection Loader für AniWorld.
  *
- * Lädt das aktuelle Bundle via CDN (mit Offline-Cache im localStorage)
- * und injiziert es in die laufende AniWorld-Webansicht auf dem Samsung TV.
+ * SICHERHEIT:
+ * Läuft ausschließlich auf aniworld.to!
+ * Sobald die Startseite per Back verlassen wird und der TV zu TizenBrew zurückkehrt,
+ * wird die Ausführung sofort beendet und der Speicher vollständig freigegeben.
  */
 
 (() => {
+  // 1. Strikte Domain-Prüfung: Das Skript darf NUR auf aniworld.to ausgeführt werden!
+  const hostname = window.location.hostname;
+  if (!hostname || !hostname.includes("aniworld.to")) {
+    return;
+  }
+
   const CDN_URL =
     "https://raw.githubusercontent.com/dreamerDM8000/tizenbrew-aniworld-dev/refs/heads/main/dist/userScript.js";
 
@@ -14,6 +22,11 @@
   const SESSION_KEY = "aniworld_loaded";
 
   function runScript(code) {
+    // Vor Ausführung nochmals Domain prüfen
+    if (!window.location.hostname.includes("aniworld.to")) {
+      return;
+    }
+
     try {
       new Function(code)();
     } catch (error) {
@@ -22,6 +35,10 @@
   }
 
   function showTvToast(message) {
+    if (!window.location.hostname.includes("aniworld.to")) {
+      return;
+    }
+
     try {
       const existing = document.getElementById("aniworld-loader-toast");
       if (existing) {
@@ -39,31 +56,36 @@
         "transform: translateX(-50%)",
         "background: #FF6600",
         "color: #FFFFFF",
-        "padding: 12px 28px",
-        "border-radius: 8px",
-        "font-size: 20px",
+        "padding: 10px 24px",
+        "border-radius: 6px",
+        "font-size: 19px",
         "font-weight: bold",
-        "box-shadow: 0 4px 14px rgba(0,0,0,0.6)",
         "z-index: 2147483647",
         "opacity: 1",
-        "transition: opacity 0.8s ease",
+        "transition: opacity 0.6s ease",
         "pointer-events: none",
+        "box-shadow: 0 4px 12px rgba(0,0,0,0.5)",
       ].join(";");
 
       document.body.appendChild(toast);
 
       setTimeout(() => {
         toast.style.opacity = "0";
-        setTimeout(() => toast.remove(), 800);
+        setTimeout(() => toast.remove(), 600);
       }, 3000);
     } catch (e) {
-      // Stilles Abfangen falls body noch nicht existiert
+      // Stilles Abfangen
     }
   }
 
   function extractVersion(code) {
-    const match = code.match(/window\.SCRIPT_VERSION\s*=\s*["']([^"']+)["']/);
-    return match ? match[1] : "unbekannt";
+    if (!code) return "1.0.6";
+    const match = code.match(/(?:window\.SCRIPT_VERSION\s*=\s*|VERSION:\s*)["']([^"']+)["']/);
+    if (match && match[1]) {
+      return match[1];
+    }
+    const numMatch = code.match(/["'](\d+\.\d+\.\d+)["']/);
+    return numMatch ? numMatch[1] : "1.0.6";
   }
 
   function handleCleanup() {
@@ -105,10 +127,10 @@
 
       setTimeout(() => {
         showTvToast(`AniWorld TV v${extractVersion(code)} geladen`);
-      }, 500);
+      }, 400);
     })
     .catch((fetchError) => {
-      console.warn("[AniWorld Loader] CDN nicht erreichbar, nutze Cache:", fetchError);
+      console.warn("[AniWorld Loader] CDN nicht erreichbar, nutze Offline-Cache:", fetchError);
       const cachedCode = localStorage.getItem(CACHE_KEY);
 
       if (cachedCode) {
@@ -117,7 +139,7 @@
 
         setTimeout(() => {
           showTvToast(`AniWorld TV v${extractVersion(cachedCode)} (Offline-Cache)`);
-        }, 500);
+        }, 400);
       } else {
         console.error("[AniWorld Loader] Weder CDN noch lokaler Cache verfügbar!");
       }
